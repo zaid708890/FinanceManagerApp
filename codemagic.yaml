@@ -217,8 +217,22 @@ workflows:
           else
             echo "No .app files found!"
           fi
+          
+          # Add a README file with instructions
+          cat > $CM_BUILD_DIR/artifacts/README.txt << 'EOL'
+          Your Finance Manager iOS app has been built successfully!
+          
+          This build contains your actual Finance Manager app code, not just a Hello World app.
+          
+          The app files can be found:
+          1. As email attachments (if email publishing is configured)
+          2. On the Codemagic dashboard in the Artifacts section
+          
+          To install on your device, you'll need to set up code signing with an Apple Developer account.
+          EOL
     artifacts:
       - $CM_BUILD_DIR/artifacts/*.app
+      - $CM_BUILD_DIR/artifacts/README.txt
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - /tmp/xcodebuild_logs/*.log
     publishing:
@@ -227,15 +241,4 @@ workflows:
           - your-email@example.com # Replace with your actual email
         notify:
           success: true
-          failure: true
-        attachments: true
-        release_notes: |
-          Your Finance Manager iOS app has been built successfully!
-          
-          This build contains your actual Finance Manager app code, not just a Hello World app.
-          
-          The app files can be found:
-          1. In the email attachments (.app file)
-          2. On the Codemagic dashboard in the Artifacts section
-          
-          To install on your device, you'll need to set up code signing with an Apple Developer account. 
+          failure: true 
