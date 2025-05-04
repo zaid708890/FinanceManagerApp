@@ -24,8 +24,9 @@ workflows:
     environment:
       ios_signing:
         distribution_type: ${{ inputs.distribution_type }}
-        bundle_identifier: com.example.financemanager
+        bundle_identifier: io.codemagic.financemanager
       vars:
+        BUNDLE_ID: "io.codemagic.financemanager"
         XCODE_PROJECT: "FinanceManager.xcodeproj" # Update this if your project name is different
         XCODE_SCHEME: "FinanceManagerApp" # Update this if your scheme name is different
       xcode: ${{ inputs.xcode_version }}
