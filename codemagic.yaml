@@ -3,7 +3,7 @@ workflows:
     name: iOS Workflow with Remote Access
     environment:
       xcode: latest
-    instance_type: mac_pro
+    instance_type: mac_mini_m1
     triggering:
       events:
         - push
