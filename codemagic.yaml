@@ -83,4 +83,43 @@ workflows:
           - your-email@example.com
         notify:
           success: true
+          failure: true
+          
+  # New workflow for simulator builds (no code signing required)
+  ios-simulator:
+    name: iOS Simulator Build
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      vars:
+        XCODE_PROJECT: "FinanceManager.xcodeproj" # Update this if your project name is different
+        XCODE_SCHEME: "FinanceManagerApp" # Update this if your scheme name is different
+      xcode: latest
+      cocoapods: default
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/CocoaPods
+    scripts:
+      - name: Install CocoaPods dependencies
+        script: |
+          pod install || true
+      - name: Build for iOS simulator
+        script: |
+          xcodebuild build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+    artifacts:
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
           failure: true 
