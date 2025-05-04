@@ -1,0 +1,63 @@
+workflows:
+  ios-workflow:
+    name: iOS Finance Manager Workflow
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    inputs:
+      xcode_version:
+        description: Xcode version to use
+        type: choice
+        options: ["latest", "16.3", "16.2", "16.1", "16.0", "15.4"]
+        default: latest
+      submit_to_testflight:
+        description: Submit build to TestFlight
+        type: boolean
+        default: false
+      distribution_type:
+        description: iOS distribution type
+        type: choice
+        options: ["app_store", "ad_hoc", "development"]
+        default: development
+    integrations:
+      # Replace with your App Store Connect API key name after setting it up in Codemagic UI
+      app_store_connect: app_store_connect_api_key_name
+    environment:
+      ios_signing:
+        distribution_type: ${{ inputs.distribution_type }}
+        bundle_identifier: com.example.financemanager
+      vars:
+        XCODE_PROJECT: "FinanceManager.xcodeproj" # Update this if your project name is different
+        XCODE_SCHEME: "FinanceManagerApp" # Update this if your scheme name is different
+      xcode: ${{ inputs.xcode_version }}
+      cocoapods: default
+    scripts:
+      - name: Install CocoaPods dependencies
+        script: |
+          pod install || true
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build iOS app
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --configuration Release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: ${{ inputs.submit_to_testflight }}
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true 
