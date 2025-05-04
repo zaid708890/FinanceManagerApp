@@ -3,30 +3,15 @@ workflows:
     name: iOS Workflow with Remote Access
     environment:
       xcode: latest
-    instance_type: mac_mini_m1
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: '*'
-          include: true
+    instance_type: mac_mini_m2
+    max_build_duration: 60
     scripts:
-      - name: Enable Remote Access
+      - name: Wait for remote session
         script: |
-          #!/bin/bash
-          echo "Enabling remote access..."
-          # Remote access is enabled by adding this script, no command needed
-      - name: Wait for manual project setup
-        script: |
-          echo "Remote access should be enabled in the Codemagic UI."
-          echo "Look for SSH and VNC connection details in the build logs."
-          echo "After setting up the Xcode project, commit it directly from the VM."
+          echo "Starting build with remote access"
+          echo "Connect to this VM using the SSH or VNC credentials provided in the Codemagic UI"
           echo "Waiting for remote session to complete..."
           sleep 1800 # 30 minutes timeout
-    publishing:
-      email:
-        recipients:
-          - email@example.com
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
