@@ -106,24 +106,24 @@ workflows:
           # Create a basic Package.swift file if none exists
           if [ ! -f "Package.swift" ]; then
             echo "Creating Package.swift file..."
-            cat > Package.swift << 'EOL'
-            // swift-tools-version:5.5
-            import PackageDescription
+            cat > Package.swift << EOL
+// swift-tools-version:5.5
+import PackageDescription
 
-            let package = Package(
-                name: "FinanceManagerApp",
-                platforms: [.iOS(.v15)],
-                products: [
-                    .executable(name: "FinanceManagerApp", targets: ["FinanceManagerApp"]),
-                ],
-                targets: [
-                    .executableTarget(
-                        name: "FinanceManagerApp",
-                        path: "."
-                    )
-                ]
-            )
-            EOL
+let package = Package(
+    name: "FinanceManagerApp",
+    platforms: [.iOS(.v15)],
+    products: [
+        .executable(name: "FinanceManagerApp", targets: ["FinanceManagerApp"]),
+    ],
+    targets: [
+        .executableTarget(
+            name: "FinanceManagerApp",
+            path: "."
+        )
+    ]
+)
+EOL
           fi
       
       - name: Create Xcode project
