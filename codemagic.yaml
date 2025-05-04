@@ -1,19 +1,11 @@
-workflows:
-  ios-workflow:
-    name: iOS Workflow with Remote Access
-    environment:
-      xcode: latest
-    instance_type: mac_mini_m2
-    max_build_duration: 60
-    scripts:
-      - name: Wait for remote session
-        script: |
-          echo "Starting build with remote access"
-          echo "Connect to this VM using the SSH or VNC credentials provided in the Codemagic UI"
-          echo "Waiting for remote session to complete..."
-          sleep 1800 # 30 minutes timeout
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM 
+   workflows:
+     ios-build:
+       name: iOS Build
+       instance_type: mac_mini_m1
+       environment:
+         xcode: latest
+       scripts:
+         - name: Build iOS app
+           script: xcodebuild build -project "FinanceManager.xcodeproj" -scheme "FinanceManager" -sdk iphonesimulator
+       artifacts:
+         - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
