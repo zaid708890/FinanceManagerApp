@@ -3,9 +3,6 @@ workflows:
     name: iOS Workflow with Remote Access
     environment:
       xcode: latest
-      ios_signing:
-        distribution_type: development
-        bundle_identifier: com.financemanager.app
     scripts:
       - name: Enable Remote Access
         script: |
