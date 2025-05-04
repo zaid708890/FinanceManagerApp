@@ -19,36 +19,36 @@ workflows:
           echo "Looking for Swift files:"
           find . -name "*.swift"
           
-      - name: Prepare Xcode project
+      - name: Create basic Xcode project
         script: |
-          # Create a simple directory for Swift files if needed
-          mkdir -p FinanceManagerApp
-          
-          # Copy Swift files to the directory
-          find . -name "*.swift" -exec cp {} FinanceManagerApp/ \;
-          
-          cd FinanceManagerApp
-          
-          # Use Swift Package Manager to create a basic project
+          # Create a basic Xcode project without trying to change directories
+          mkdir -p FinanceManagerProject
+          cd FinanceManagerProject
           swift package init --type executable
           swift package generate-xcodeproj
           
       - name: Build iOS app
         script: |
-          # List available projects
-          find . -name "*.xcodeproj"
-          
-          # Try to build the created project
-          cd FinanceManagerApp
+          # Find any Xcode projects in current directory or subdirectories
           XCODEPROJ=$(find . -name "*.xcodeproj" | head -n 1)
+          
           if [ -n "$XCODEPROJ" ]; then
             echo "Found Xcode project: $XCODEPROJ"
+            PROJECT_DIR=$(dirname "$XCODEPROJ")
+            cd "$PROJECT_DIR"
             PROJECT_NAME=$(basename "$XCODEPROJ" .xcodeproj)
-            xcodebuild -project "$XCODEPROJ" -scheme "$PROJECT_NAME" -configuration Debug -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+            
+            # List available schemes
+            echo "Available schemes:"
+            xcodebuild -project "$XCODEPROJ" -list
+            
+            # Try to build
+            xcodebuild -project "$(basename "$XCODEPROJ")" -scheme "$PROJECT_NAME" -configuration Debug -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
           else
             echo "No .xcodeproj found. Build cannot continue."
             exit 1
           fi
     artifacts:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - FinanceManagerApp/build/**/*.app
+      - build/**/*.app
+      - FinanceManagerProject/build/**/*.app
