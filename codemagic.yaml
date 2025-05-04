@@ -19,74 +19,36 @@ workflows:
           echo "Looking for Swift files:"
           find . -name "*.swift"
           
-      - name: Create Xcode project
+      - name: Prepare Xcode project
         script: |
-          # If no project exists, create a simple one from the Swift files
-          if [ -z "$(find . -name "*.xcodeproj")" ] && [ -z "$(find . -name "*.xcworkspace")" ]; then
-            echo "No Xcode project found. Creating a simple project structure..."
-            mkdir -p FinanceManagerApp/FinanceManagerApp
-            
-            # Copy Swift files into the app structure
-            find . -name "*.swift" -exec cp {} FinanceManagerApp/FinanceManagerApp/ \;
-            
-            # Create a basic project
-            cd FinanceManagerApp
-            
-            # Create Info.plist
-            cat > FinanceManagerApp/Info.plist << EOF
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>CFBundleDevelopmentRegion</key>
-                <string>en</string>
-                <key>CFBundleExecutable</key>
-                <string>$(EXECUTABLE_NAME)</string>
-                <key>CFBundleIdentifier</key>
-                <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-                <key>CFBundleInfoDictionaryVersion</key>
-                <string>6.0</string>
-                <key>CFBundleName</key>
-                <string>$(PRODUCT_NAME)</string>
-                <key>CFBundlePackageType</key>
-                <string>APPL</string>
-                <key>CFBundleShortVersionString</key>
-                <string>1.0</string>
-                <key>CFBundleVersion</key>
-                <string>1</string>
-                <key>LSRequiresIPhoneOS</key>
-                <true/>
-                <key>UILaunchStoryboardName</key>
-                <string>LaunchScreen</string>
-                <key>UIRequiredDeviceCapabilities</key>
-                <array>
-                    <string>armv7</string>
-                </array>
-                <key>UISupportedInterfaceOrientations</key>
-                <array>
-                    <string>UIInterfaceOrientationPortrait</string>
-                </array>
-            </dict>
-            </plist>
-            EOF
-            
-            # Use Swift Package Manager to create a project structure
-            swift package init --type executable
-            swift package generate-xcodeproj
-          fi
-      
+          # Create a simple directory for Swift files if needed
+          mkdir -p FinanceManagerApp
+          
+          # Copy Swift files to the directory
+          find . -name "*.swift" -exec cp {} FinanceManagerApp/ \;
+          
+          cd FinanceManagerApp
+          
+          # Use Swift Package Manager to create a basic project
+          swift package init --type executable
+          swift package generate-xcodeproj
+          
       - name: Build iOS app
         script: |
-          # Try to find and build the Xcode project
+          # List available projects
+          find . -name "*.xcodeproj"
+          
+          # Try to build the created project
+          cd FinanceManagerApp
           XCODEPROJ=$(find . -name "*.xcodeproj" | head -n 1)
           if [ -n "$XCODEPROJ" ]; then
             echo "Found Xcode project: $XCODEPROJ"
             PROJECT_NAME=$(basename "$XCODEPROJ" .xcodeproj)
-            xcodebuild clean build -project "$XCODEPROJ" -scheme "$PROJECT_NAME" -configuration Debug -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+            xcodebuild -project "$XCODEPROJ" -scheme "$PROJECT_NAME" -configuration Debug -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
           else
             echo "No .xcodeproj found. Build cannot continue."
             exit 1
           fi
     artifacts:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - build/ios/iphoneos/**/*.app
+      - FinanceManagerApp/build/**/*.app
