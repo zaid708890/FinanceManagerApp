@@ -106,24 +106,27 @@ workflows:
           # Create a basic Package.swift file if none exists
           if [ ! -f "Package.swift" ]; then
             echo "Creating Package.swift file..."
-            cat > Package.swift << EOL
-// swift-tools-version:5.5
-import PackageDescription
-
-let package = Package(
-    name: "FinanceManagerApp",
-    platforms: [.iOS(.v15)],
-    products: [
-        .executable(name: "FinanceManagerApp", targets: ["FinanceManagerApp"]),
-    ],
-    targets: [
-        .executableTarget(
-            name: "FinanceManagerApp",
-            path: "."
-        )
-    ]
-)
-EOL
+            
+            # Create the Package.swift file without using heredoc
+            echo '// swift-tools-version:5.5' > Package.swift
+            echo 'import PackageDescription' >> Package.swift
+            echo '' >> Package.swift
+            echo 'let package = Package(' >> Package.swift
+            echo '    name: "FinanceManagerApp",' >> Package.swift
+            echo '    platforms: [.iOS(.v15)],' >> Package.swift
+            echo '    products: [' >> Package.swift
+            echo '        .executable(name: "FinanceManagerApp", targets: ["FinanceManagerApp"]),' >> Package.swift
+            echo '    ],' >> Package.swift
+            echo '    targets: [' >> Package.swift
+            echo '        .executableTarget(' >> Package.swift
+            echo '            name: "FinanceManagerApp",' >> Package.swift
+            echo '            path: "."' >> Package.swift
+            echo '        )' >> Package.swift
+            echo '    ]' >> Package.swift
+            echo ')' >> Package.swift
+            
+            echo "Package.swift created successfully"
+            cat Package.swift
           fi
       
       - name: Create Xcode project
