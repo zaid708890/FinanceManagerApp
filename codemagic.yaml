@@ -1,108 +1,52 @@
 workflows:
-  ios-native:
-    name: iOS Native App
+  ios-diagnostic:
+    name: iOS Build Diagnostic
     instance_type: mac_mini_m2
     environment:
       xcode: latest
     scripts:
-      - name: Debug repository structure
+      - name: System information
         script: |
-          echo "Listing repository contents:"
+          echo "===== SYSTEM INFO ====="
+          uname -a
+          echo "\nXcode version:"
+          xcodebuild -version
+          echo "\nSwift version:"
+          swift --version
+          echo "\nSDK paths:"
+          xcrun --sdk iphoneos --show-sdk-path
+          
+      - name: Repository contents
+        script: |
+          echo "===== REPOSITORY CONTENTS ====="
+          echo "Current directory:"
+          pwd
+          echo "\nRepository root contents:"
           ls -la
-          echo "Finding Swift files:"
+          
+          echo "\nAvailable Swift files:"
           find . -name "*.swift" | sort
           
-      - name: Create basic iOS app
+          echo "\nDirectory structure:"
+          find . -type d | sort
+          
+          echo "\nXcode project files (if any):"
+          find . -name "*.xcodeproj" -o -name "*.pbxproj" -o -name "*.xcworkspace"
+          
+      - name: Simple Swift test
         script: |
-          # Create a simple iOS app using Xcode templates
-          mkdir -p SimpleIOSApp
-          cd SimpleIOSApp
+          echo "===== SWIFT TEST ====="
+          # Create a directory for our test
+          mkdir -p swifttest
+          cd swifttest
           
-          # Create a new Xcode iOS project using Xcode command line
-          /Applications/Xcode*.app/Contents/Developer/usr/bin/xcodegen -type singleview -name SimpleApp -platform iOS
+          # Create a simple Swift file
+          echo 'print("Hello, world!")' > hello.swift
           
-          # Alternative approach if xcodegen isn't available
-          if [ $? -ne 0 ]; then
-            echo "xcodegen not available, trying direct Xcode project creation"
-            # Create a basic Info.plist
-            cat > Info.plist << EOF
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>CFBundleDevelopmentRegion</key>
-                <string>en</string>
-                <key>CFBundleExecutable</key>
-                <string>SimpleApp</string>
-                <key>CFBundleIdentifier</key>
-                <string>io.codemagic.simpleapp</string>
-                <key>CFBundleInfoDictionaryVersion</key>
-                <string>6.0</string>
-                <key>CFBundleName</key>
-                <string>SimpleApp</string>
-                <key>CFBundlePackageType</key>
-                <string>APPL</string>
-                <key>CFBundleShortVersionString</key>
-                <string>1.0</string>
-                <key>CFBundleVersion</key>
-                <string>1</string>
-                <key>LSRequiresIPhoneOS</key>
-                <true/>
-                <key>UILaunchStoryboardName</key>
-                <string>LaunchScreen</string>
-                <key>UIRequiredDeviceCapabilities</key>
-                <array>
-                    <string>armv7</string>
-                </array>
-                <key>UISupportedInterfaceOrientations</key>
-                <array>
-                    <string>UIInterfaceOrientationPortrait</string>
-                </array>
-            </dict>
-            </plist>
-            EOF
-            
-            # Create a simple AppDelegate.swift
-            cat > AppDelegate.swift << EOF
-            import UIKit
-
-            @UIApplicationMain
-            class AppDelegate: UIResponder, UIApplicationDelegate {
-                var window: UIWindow?
-                
-                func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-                    window = UIWindow(frame: UIScreen.main.bounds)
-                    window?.rootViewController = UIViewController()
-                    window?.backgroundColor = .white
-                    window?.makeKeyAndVisible()
-                    return true
-                }
-            }
-            EOF
-            
-            # Let's try using a simple Makefile approach
-            cat > Makefile << EOF
-            .PHONY: build
-            
-            build:
-                xcrun swiftc -sdk \$(shell xcrun --sdk iphoneos --show-sdk-path) -target arm64-apple-ios14.0 \\
-                -o SimpleApp AppDelegate.swift
-            EOF
-            
-            make build
-          fi
-          
-          # Show what we've created
-          ls -la
-          
-      - name: Try simple build
-        script: |
-          # Let's try a direct compilation approach
-          echo "import UIKit; print(\"Hello iOS\")" > hello.swift
-          xcrun swiftc -sdk $(xcrun --sdk iphoneos --show-sdk-path) -target arm64-apple-ios14.0 hello.swift -o hello
+          # Try to compile (macOS target first - should work on any Mac)
+          echo "\nCompiling for macOS:"
+          swiftc hello.swift -o hello_macos
           
           # Show the result
+          echo "\nCompilation results:"
           ls -la
-    artifacts:
-      - SimpleIOSApp/**/*
-      - hello
