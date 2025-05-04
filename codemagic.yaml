@@ -24,6 +24,7 @@ workflows:
     environment:
       ios_signing:
         distribution_type: ${{ inputs.distribution_type }}
+        # Bundle identifier must match your Apple Developer Portal registration
         bundle_identifier: io.codemagic.financemanager
       vars:
         BUNDLE_ID: "io.codemagic.financemanager"
@@ -31,15 +32,36 @@ workflows:
         XCODE_SCHEME: "FinanceManagerApp" # Update this if your scheme name is different
       xcode: ${{ inputs.xcode_version }}
       cocoapods: default
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/CocoaPods
+        - $HOME/.gradle/caches
     scripts:
       - name: Install CocoaPods dependencies
         script: |
           pod install || true
       - name: Set up code signing
         script: |
+          # Initialize keychain
           keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          
+          # For development or ad-hoc distribution
+          if [ "${{ inputs.distribution_type }}" = "development" ] || [ "${{ inputs.distribution_type }}" = "ad_hoc" ]; then
+            # Create development certificate and provisioning profile
+            app-store-connect fetch-signing-files "$BUNDLE_ID" \
+              --type ${{ inputs.distribution_type == 'ad_hoc' && 'IOS_APP_ADHOC' || 'IOS_APP_DEVELOPMENT' }} \
+              --create
+          else
+            # Create app store distribution certificate and profile
+            app-store-connect fetch-signing-files "$BUNDLE_ID" \
+              --type IOS_APP_STORE \
+              --create
+          fi
+          
+          # Add certificates to keychain
           keychain add-certificates
+          
+          # Set up code signing settings
           xcode-project use-profiles
       - name: Build iOS app
         script: |
