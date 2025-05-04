@@ -1,34 +1,19 @@
 workflows:
-  ios-workflow:
-    name: iOS Workflow
-    instance_type: mac_mini_m1
+  ios-native:
+    name: iOS Native App
+    instance_type: mac_mini_m2
     environment:
-      flutter: stable
       xcode: latest
+      cocoapods: default
     scripts:
-      - name: Setup project path
+      - name: Set up code signing
         script: |
-          # Print directory structure to debug
-          ls -la
-          # If your Flutter project is in a subdirectory, cd into it
-          # For example: cd FinanceManager iOS App
-          # Uncomment and modify the next line if needed:
-          # cd "FinanceManager iOS App"
-      - name: Get Flutter packages
-        script: |
-          # Try to find pubspec.yaml and run flutter pub get
-          if [ -f "pubspec.yaml" ]; then
-            flutter pub get
-          else
-            echo "Error: pubspec.yaml not found in current directory"
-            find . -name "pubspec.yaml" -type f
-            exit 1
-          fi
-      - name: Install pods
+          echo "Setting up code signing"
+      - name: Install CocoaPods dependencies
         script: |
           find . -name "Podfile" -execdir pod install \;
       - name: Build iOS app
         script: |
-          flutter build ios --release --no-codesign
+          xcodebuild clean build -workspace "*.xcworkspace" -scheme "FinanceManager" -configuration Debug -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
     artifacts:
-      - build/ios/iphoneos/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
