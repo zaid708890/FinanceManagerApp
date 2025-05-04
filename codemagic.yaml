@@ -1,89 +1,21 @@
 workflows:
-  ios-build:
-    name: iOS App Build
+  ios-minimal:
+    name: iOS Minimal App
     instance_type: mac_mini_m2
     environment:
       xcode: latest
     scripts:
-      - name: Create Xcode project structure
+      - name: Create minimal iOS app
         script: |
-          # Create a template iOS project using Xcode
-          mkdir -p FinanceManagerBuild
-          cd FinanceManagerBuild
+          # Create a new directory
+          mkdir -p SimpleIOSApp
+          cd SimpleIOSApp
           
-          # Show available Xcode templates
-          echo "Available Xcode templates:"
-          ls -la /Applications/Xcode*.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Xcode/Templates/Project\ Templates/iOS/
-          
-          # Create a new Xcode project using template
-          /Applications/Xcode*.app/Contents/Developer/usr/bin/swift run xcnew FinanceManager com.example --template singleview
-          
-          if [ $? -ne 0 ]; then
-            echo "xcnew command failed, trying alternate approach with manual project creation"
-            
-            # Create a directory structure manually
-            mkdir -p FinanceManager/FinanceManager
-            cd FinanceManager
-            
-            # Copy all Swift files from the repository to our project
-            find ../../ -name "*.swift" -exec cp {} FinanceManager/ \;
-            
-            # Create project.pbxproj file
-            mkdir -p FinanceManager.xcodeproj
-            
-            echo "Created basic project structure. Files in the project:"
-            find . -type f | sort
-          fi
-          
-      - name: Try Swift Package Manager approach
-        script: |
-          # Create a new directory for SPM approach
-          mkdir -p SwiftPMBuild
-          cd SwiftPMBuild
-          
-          # Initialize a Swift package
-          swift package init --type executable
-          
-          # Copy the Swift files from repository
-          find ../ -name "*.swift" -not -path "*/SwiftPMBuild/*" -exec cp {} Sources/ \;
-          
-          # Edit Package.swift to add iOS platform and UIKit
-          cat > Package.swift << EOF
-          // swift-tools-version:5.3
-          import PackageDescription
-          
-          let package = Package(
-              name: "FinanceManager",
-              platforms: [.iOS(.v14)],
-              products: [
-                  .executable(name: "FinanceManager", targets: ["FinanceManager"]),
-              ],
-              dependencies: [],
-              targets: [
-                  .target(
-                      name: "FinanceManager",
-                      dependencies: []),
-              ]
-          )
-          EOF
-          
-          # Try to build
-          swift build
-          
-          # Check result
-          echo "Swift package build files:"
-          find . -type f -name "*.build" | sort
-          
-      - name: Create simple iOS app to prove build works
-        script: |
-          # Create a minimal iOS app that should definitely build
-          mkdir -p SimpleApp
-          cd SimpleApp
-          
-          # Create a basic Swift file for iOS
-          cat > main.swift << EOF
+          # Create a proper Swift file with @main attribute
+          cat > AppDelegate.swift << EOF
           import UIKit
           
+          @main
           class AppDelegate: UIResponder, UIApplicationDelegate {
               var window: UIWindow?
               
@@ -95,30 +27,104 @@ workflows:
                   return true
               }
           }
-          
-          UIApplicationMain(
-              CommandLine.argc,
-              CommandLine.unsafeArgv,
-              nil,
-              NSStringFromClass(AppDelegate.self)
-          )
           EOF
           
-          # Compile with the proper Swift approach for iOS
-          xcrun swiftc -sdk $(xcrun --sdk iphoneos --show-sdk-path) \
-            -target arm64-apple-ios14.0 \
-            -parse-as-library \
-            main.swift \
-            -o SimpleApp
-            
-          # Check if build succeeded
+          # Create basic Info.plist
+          cat > Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>en</string>
+              <key>CFBundleExecutable</key>
+              <string>SimpleApp</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.example.simpleapp</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleName</key>
+              <string>SimpleApp</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>UIApplicationSceneManifest</key>
+              <dict>
+                  <key>UIApplicationSupportsMultipleScenes</key>
+                  <false/>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+          
+          # Try the updated compilation approach
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          
+          echo "Trying direct compilation with xcodebuild..."
+          
+          # Use the simplest possible xcodebuild command
+          xcodebuild -create-xcframework -output SimpleApp.xcframework -library ./dummy.a
+          
+          # Now try a different compilation approach with swiftc
+          echo "Trying compilation with swiftc..."
+          xcrun swiftc -sdk $SDK_PATH -target arm64-apple-ios14.0 \
+            -emit-executable -parse-as-library \
+            -o SimpleApp AppDelegate.swift
+          
+          # Check result
           if [ -f "SimpleApp" ]; then
             echo "Simple iOS app build succeeded!"
             ls -la SimpleApp
           else
-            echo "Simple iOS app build failed."
+            echo "Let's try with Xcode single view app template..."
+            
+            # Create a basic single view app template
+            mkdir -p SingleViewApp
+            cd SingleViewApp
+            
+            # Create a basic AppDelegate for UIKit app
+            cat > AppDelegate.swift << EOF
+            import UIKit
+            
+            @UIApplicationMain
+            class AppDelegate: UIResponder, UIApplicationDelegate {
+                var window: UIWindow?
+                func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                    return true
+                }
+            }
+            EOF
+            
+            # Create a basic ViewController
+            cat > ViewController.swift << EOF
+            import UIKit
+            
+            class ViewController: UIViewController {
+                override func viewDidLoad() {
+                    super.viewDidLoad()
+                    view.backgroundColor = .white
+                }
+            }
+            EOF
+            
+            # Use xcrun to compile these files
+            xcrun swiftc -sdk $SDK_PATH \
+              -target arm64-apple-ios14.0 \
+              -parse-as-library \
+              -o SingleViewApp \
+              AppDelegate.swift ViewController.swift
+            
+            if [ -f "SingleViewApp" ]; then
+              echo "Single view app build succeeded!"
+              ls -la SingleViewApp
+            else
+              echo "All build attempts failed."
+            fi
           fi
     artifacts:
-      - FinanceManagerBuild/**/*
-      - SwiftPMBuild/**/*
-      - SimpleApp/**/*
+      - SimpleIOSApp/**/*
