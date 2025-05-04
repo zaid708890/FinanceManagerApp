@@ -1,186 +1,144 @@
 workflows:
-  ios-workflow:
-    name: iOS Finance Manager Workflow
-    instance_type: mac_mini_m2
-    max_build_duration: 120
-    inputs:
-      xcode_version:
-        description: Xcode version to use
-        type: choice
-        options: ["latest", "16.3", "16.2", "16.1", "16.0", "15.4"]
-        default: latest
-      submit_to_testflight:
-        description: Submit build to TestFlight
-        type: boolean
-        default: false
-      distribution_type:
-        description: iOS distribution type
-        type: choice
-        options: ["app_store", "ad_hoc", "development"]
-        default: development
-    integrations:
-      # Replace with your App Store Connect API key name after setting it up in Codemagic UI
-      app_store_connect: app_store_connect_api_key_name
-    environment:
-      ios_signing:
-        distribution_type: ${{ inputs.distribution_type }}
-        # Bundle identifier must match your Apple Developer Portal registration
-        bundle_identifier: io.codemagic.financemanager
-      vars:
-        BUNDLE_ID: "io.codemagic.financemanager"
-        XCODE_PROJECT: "FinanceManager.xcodeproj" # Update this if your project name is different
-        XCODE_SCHEME: "FinanceManagerApp" # Update this if your scheme name is different
-      xcode: ${{ inputs.xcode_version }}
-      cocoapods: default
-    cache:
-      cache_paths:
-        - $HOME/Library/Caches/CocoaPods
-        - $HOME/.gradle/caches
-    scripts:
-      - name: Install CocoaPods dependencies
-        script: |
-          pod install || true
-      - name: Set up code signing
-        script: |
-          # Initialize keychain
-          keychain initialize
-          
-          # For development or ad-hoc distribution
-          if [ "${{ inputs.distribution_type }}" = "development" ] || [ "${{ inputs.distribution_type }}" = "ad_hoc" ]; then
-            # Create development certificate and provisioning profile
-            app-store-connect fetch-signing-files "$BUNDLE_ID" \
-              --type ${{ inputs.distribution_type == 'ad_hoc' && 'IOS_APP_ADHOC' || 'IOS_APP_DEVELOPMENT' }} \
-              --create
-          else
-            # Create app store distribution certificate and profile
-            app-store-connect fetch-signing-files "$BUNDLE_ID" \
-              --type IOS_APP_STORE \
-              --create
-          fi
-          
-          # Add certificates to keychain
-          keychain add-certificates
-          
-          # Set up code signing settings
-          xcode-project use-profiles
-      - name: Build iOS app
-        script: |
-          xcode-project build-ipa \
-            --project "$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME" \
-            --configuration Release
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: ${{ inputs.submit_to_testflight }}
-      email:
-        recipients:
-          - your-email@example.com
-        notify:
-          success: true
-          failure: true
-          
-  # Updated workflow for SwiftUI app with modern deployment targets
-  ios-simulator:
-    name: iOS Simulator Build
+  ios-finance-manager:
+    name: iOS Finance Manager App
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       vars:
         APP_NAME: "FinanceManagerApp"
         BUNDLE_ID: "io.codemagic.financemanager"
-        # Ensure we use a recent Xcode version that supports SwiftUI features
       xcode: latest
     scripts:
-      - name: List project structure
+      - name: Examine project structure
         script: |
           echo "Project structure:"
           find . -type f -name "*.swift" | sort
+          
+          # Create a directory to consolidate files
+          mkdir -p $CM_BUILD_DIR/FinanceManager
+          cp -R ./* $CM_BUILD_DIR/FinanceManager/ || true
+          cd $CM_BUILD_DIR/FinanceManager
+          
+          # List all Swift files
+          echo "Swift files in project:"
+          find . -name "*.swift" | sort
       
-      - name: Create Xcode project for SwiftUI app
+      - name: Create Xcode project
         script: |
-          # Navigate to clone directory
-          cd $CM_BUILD_DIR
+          cd $CM_BUILD_DIR/FinanceManager
           
-          # Create a temporary Xcode project
-          mkdir -p TempProject
-          cd TempProject
+          # Create an Info.plist file if it doesn't exist
+          if [ ! -f "Info.plist" ]; then
+            cat > Info.plist << 'EOL'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>CFBundleDevelopmentRegion</key>
+                <string>$(DEVELOPMENT_LANGUAGE)</string>
+                <key>CFBundleExecutable</key>
+                <string>$(EXECUTABLE_NAME)</string>
+                <key>CFBundleIdentifier</key>
+                <string>io.codemagic.financemanager</string>
+                <key>CFBundleInfoDictionaryVersion</key>
+                <string>6.0</string>
+                <key>CFBundleName</key>
+                <string>$(PRODUCT_NAME)</string>
+                <key>CFBundlePackageType</key>
+                <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+                <key>CFBundleShortVersionString</key>
+                <string>1.0</string>
+                <key>CFBundleVersion</key>
+                <string>1</string>
+                <key>LSRequiresIPhoneOS</key>
+                <true/>
+                <key>UIApplicationSceneManifest</key>
+                <dict>
+                    <key>UIApplicationSupportsMultipleScenes</key>
+                    <true/>
+                </dict>
+                <key>UIApplicationSupportsIndirectInputEvents</key>
+                <true/>
+                <key>UILaunchScreen</key>
+                <dict/>
+                <key>UIRequiredDeviceCapabilities</key>
+                <array>
+                    <string>armv7</string>
+                </array>
+                <key>UISupportedInterfaceOrientations</key>
+                <array>
+                    <string>UIInterfaceOrientationPortrait</string>
+                </array>
+            </dict>
+            </plist>
+            EOL
+          fi
           
-          # Create a basic SwiftUI app with appropriate deployment targets
-          cat > create_project.swift << 'EOL'
-          import Foundation
+          # Create an Xcode project using Swift Package Manager
+          cat > Package.swift << 'EOL'
+          // swift-tools-version:5.5
+          import PackageDescription
 
-          let projectName = "FinanceManagerApp"
-          
-          // Create project.pbxproj content with iOS 14.0 minimum deployment target
-          let pbxproj = """
-          // !$*UTF8*$!
-          {
-            archiveVersion = 1;
-            classes = {
-            };
-            objectVersion = 50;
-            objects = {
-              /* Begin PBXBuildFile section */
-              /* End PBXBuildFile section */
-              /* Begin PBXFileReference section */
-              /* End PBXFileReference section */
-              /* Begin PBXFrameworksBuildPhase section */
-              /* End PBXFrameworksBuildPhase section */
-              /* Begin PBXGroup section */
-              /* End PBXGroup section */
-              /* Begin PBXNativeTarget section */
-              /* End PBXNativeTarget section */
-              /* Begin PBXProject section */
-                buildSettings = {
-                  IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-                };
-              /* End PBXProject section */
-              /* Begin XCBuildConfiguration section */
-                buildSettings = {
-                  IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-                };
-              /* End XCBuildConfiguration section */
-            };
-            rootObject = 1234567890ABCDEF1234567890ABCDEF;
-          }
-          """
-          
-          // Write to file
-          try? FileManager.default.createDirectory(atPath: "\(projectName).xcodeproj", withIntermediateDirectories: true)
-          try? pbxproj.write(toFile: "\(projectName).xcodeproj/project.pbxproj", atomically: true, encoding: .utf8)
-          
-          print("Created temporary Xcode project with iOS 14.0 deployment target")
+          let package = Package(
+              name: "FinanceManagerApp",
+              platforms: [.iOS(.v14)],
+              products: [
+                  .library(name: "FinanceManagerApp", targets: ["FinanceManagerApp"]),
+              ],
+              targets: [
+                  .target(
+                      name: "FinanceManagerApp",
+                      path: ".",
+                      exclude: ["Package.swift"]
+                  )
+              ]
+          )
           EOL
           
-          # Run the Swift script
-          swift create_project.swift
+          # Generate Xcode project from Swift Package
+          swift package generate-xcodeproj
           
-          # Move back to project directory
-          cd ..
+          # Create a proper app target in the Xcode project
+          cat > modify_xcodeproj.swift << 'EOL'
+          import Foundation
+
+          // Read the project.pbxproj file
+          let projectPath = "FinanceManagerApp.xcodeproj/project.pbxproj"
+          guard var projectContent = try? String(contentsOfFile: projectPath) else {
+              print("Failed to read project file")
+              exit(1)
+          }
+
+          // Add iOS deployment target to the project settings
+          if !projectContent.contains("IPHONEOS_DEPLOYMENT_TARGET") {
+              let targetLine = "IPHONEOS_DEPLOYMENT_TARGET = 14.0;"
+              projectContent = projectContent.replacingOccurrences(
+                  of: "buildSettings = {",
+                  with: "buildSettings = {\n\t\t\t\t\t\(targetLine)"
+              )
+          }
+
+          // Write the modified content back
+          try? projectContent.write(toFile: projectPath, atomically: true, encoding: .utf8)
+          print("Updated project with iOS 14.0 deployment target")
+          EOL
+          
+          # Run the script to modify the project
+          swift modify_xcodeproj.swift
       
-      - name: Build for iOS simulator with correct deployment target
+      - name: Build for iOS simulator
         script: |
-          # Ensure we create a proper SwiftUI app structure
-          mkdir -p $CM_BUILD_DIR/TempProject/Sources
-          
-          # Copy all Swift files to the project
-          find . -name "*.swift" -exec cp {} $CM_BUILD_DIR/TempProject/Sources/ \;
+          cd $CM_BUILD_DIR/FinanceManager
           
           # Set simulator destination for iOS 14.0+
           DESTINATION="platform=iOS Simulator,name=iPhone 14,OS=latest"
           
-          # Build with Xcode explicitly setting the deployment target
-          cd $CM_BUILD_DIR/TempProject
+          # Build with Xcode
           xcodebuild build \
             -project "FinanceManagerApp.xcodeproj" \
-            -configuration Debug \
+            -scheme "FinanceManagerApp" \
             -destination "${DESTINATION}" \
+            -configuration Debug \
             IPHONEOS_DEPLOYMENT_TARGET=14.0 \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
