@@ -85,34 +85,70 @@ workflows:
           success: true
           failure: true
           
-  # New workflow for simulator builds (no code signing required)
+  # Updated workflow for SwiftPM-based projects without Xcode project file
   ios-simulator:
     name: iOS Simulator Build
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       vars:
-        XCODE_PROJECT: "FinanceManager.xcodeproj" # Update this if your project name is different
-        XCODE_SCHEME: "FinanceManagerApp" # Update this if your scheme name is different
+        APP_NAME: "FinanceManagerApp"
+        BUNDLE_ID: "io.codemagic.financemanager"
       xcode: latest
-      cocoapods: default
-    cache:
-      cache_paths:
-        - $HOME/Library/Caches/CocoaPods
     scripts:
-      - name: Install CocoaPods dependencies
+      - name: List project structure
         script: |
-          pod install || true
+          echo "Project structure:"
+          find . -type f -name "*.swift" | sort
+      
+      - name: Create Swift Package
+        script: |
+          # Create a basic Package.swift file if none exists
+          if [ ! -f "Package.swift" ]; then
+            echo "Creating Package.swift file..."
+            cat > Package.swift << 'EOL'
+            // swift-tools-version:5.5
+            import PackageDescription
+
+            let package = Package(
+                name: "FinanceManagerApp",
+                platforms: [.iOS(.v15)],
+                products: [
+                    .executable(name: "FinanceManagerApp", targets: ["FinanceManagerApp"]),
+                ],
+                targets: [
+                    .executableTarget(
+                        name: "FinanceManagerApp",
+                        path: "."
+                    )
+                ]
+            )
+            EOL
+          fi
+      
+      - name: Create Xcode project
+        script: |
+          # Generate Xcode project from Swift Package
+          swift package generate-xcodeproj
+          
+          # Validate project creation
+          ls -la
+          
       - name: Build for iOS simulator
         script: |
+          # Set simulator destination
+          DESTINATION="platform=iOS Simulator,name=iPhone 14,OS=latest"
+          
+          # Build with Xcode
           xcodebuild build \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -sdk iphonesimulator \
+            -project "${APP_NAME}.xcodeproj" \
+            -scheme "${APP_NAME}" \
+            -destination "${DESTINATION}" \
             -configuration Debug \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=YES
     artifacts:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - /tmp/xcodebuild_logs/*.log
