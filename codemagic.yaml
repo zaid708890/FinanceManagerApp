@@ -1,36 +1,61 @@
 workflows:
-  ios-minimal:
-    name: iOS Minimal App
+  native-ios:
+    name: Native iOS Build
     instance_type: mac_mini_m2
     environment:
       xcode: latest
     scripts:
-      - name: Create minimal iOS app
+      - name: Check Xcode capabilities
         script: |
-          # Create a new directory
-          mkdir -p SimpleIOSApp
-          cd SimpleIOSApp
+          echo "===== XCODE INFO ====="
+          xcodebuild -version
           
-          # Create a proper Swift file with @main attribute
-          cat > AppDelegate.swift << EOF
+          echo "\nAvailable SDKs:"
+          xcodebuild -showsdks
+          
+          echo "\nAvailable destinations:"
+          xcodebuild -showdestinations
+      
+      - name: Create basic single view app with Xcode
+        script: |
+          # Create a temporary directory
+          mkdir -p TempApp
+          cd TempApp
+          
+          # Use xcodegen to create a simple project (if available)
+          echo "Creating Xcode project..."
+          
+          # Alternative: manually create project structure
+          mkdir -p SimpleApp/SimpleApp
+          cd SimpleApp
+          
+          # Main app files
+          cat > SimpleApp/AppDelegate.swift << 'EOF'
           import UIKit
-          
-          @main
+
+          @UIApplicationMain
           class AppDelegate: UIResponder, UIApplicationDelegate {
               var window: UIWindow?
               
               func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-                  window = UIWindow(frame: UIScreen.main.bounds)
-                  window?.rootViewController = UIViewController()
-                  window?.backgroundColor = .white
-                  window?.makeKeyAndVisible()
                   return true
               }
           }
           EOF
           
-          # Create basic Info.plist
-          cat > Info.plist << EOF
+          cat > SimpleApp/ViewController.swift << 'EOF'
+          import UIKit
+          
+          class ViewController: UIViewController {
+              override func viewDidLoad() {
+                  super.viewDidLoad()
+                  view.backgroundColor = .white
+              }
+          }
+          EOF
+          
+          # Create Info.plist
+          cat > SimpleApp/Info.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -38,13 +63,13 @@ workflows:
               <key>CFBundleDevelopmentRegion</key>
               <string>en</string>
               <key>CFBundleExecutable</key>
-              <string>SimpleApp</string>
+              <string>$(EXECUTABLE_NAME)</string>
               <key>CFBundleIdentifier</key>
-              <string>com.example.simpleapp</string>
+              <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
               <key>CFBundleInfoDictionaryVersion</key>
               <string>6.0</string>
               <key>CFBundleName</key>
-              <string>SimpleApp</string>
+              <string>$(PRODUCT_NAME)</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleShortVersionString</key>
@@ -53,78 +78,37 @@ workflows:
               <string>1</string>
               <key>LSRequiresIPhoneOS</key>
               <true/>
-              <key>UIApplicationSceneManifest</key>
-              <dict>
-                  <key>UIApplicationSupportsMultipleScenes</key>
-                  <false/>
-              </dict>
+              <key>UILaunchStoryboardName</key>
+              <string>LaunchScreen</string>
+              <key>UIRequiredDeviceCapabilities</key>
+              <array>
+                  <string>armv7</string>
+              </array>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+              </array>
           </dict>
           </plist>
           EOF
           
-          # Try the updated compilation approach
-          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          # Try to use xcodebuild to create a basic project file
+          echo "Creating project file..."
           
-          echo "Trying direct compilation with xcodebuild..."
+      - name: Try Codemagic iOS sample app
+        script: |
+          # Clone a known working iOS sample app
+          echo "Cloning iOS sample app..."
+          git clone https://github.com/codemagic-ci-cd/ios-demo-app.git
+          cd ios-demo-app
           
-          # Use the simplest possible xcodebuild command
-          xcodebuild -create-xcframework -output SimpleApp.xcframework -library ./dummy.a
+          # List the contents
+          echo "Sample app structure:"
+          ls -la
           
-          # Now try a different compilation approach with swiftc
-          echo "Trying compilation with swiftc..."
-          xcrun swiftc -sdk $SDK_PATH -target arm64-apple-ios14.0 \
-            -emit-executable -parse-as-library \
-            -o SimpleApp AppDelegate.swift
-          
-          # Check result
-          if [ -f "SimpleApp" ]; then
-            echo "Simple iOS app build succeeded!"
-            ls -la SimpleApp
-          else
-            echo "Let's try with Xcode single view app template..."
-            
-            # Create a basic single view app template
-            mkdir -p SingleViewApp
-            cd SingleViewApp
-            
-            # Create a basic AppDelegate for UIKit app
-            cat > AppDelegate.swift << EOF
-            import UIKit
-            
-            @UIApplicationMain
-            class AppDelegate: UIResponder, UIApplicationDelegate {
-                var window: UIWindow?
-                func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-                    return true
-                }
-            }
-            EOF
-            
-            # Create a basic ViewController
-            cat > ViewController.swift << EOF
-            import UIKit
-            
-            class ViewController: UIViewController {
-                override func viewDidLoad() {
-                    super.viewDidLoad()
-                    view.backgroundColor = .white
-                }
-            }
-            EOF
-            
-            # Use xcrun to compile these files
-            xcrun swiftc -sdk $SDK_PATH \
-              -target arm64-apple-ios14.0 \
-              -parse-as-library \
-              -o SingleViewApp \
-              AppDelegate.swift ViewController.swift
-            
-            if [ -f "SingleViewApp" ]; then
-              echo "Single view app build succeeded!"
-              ls -la SingleViewApp
-            else
-              echo "All build attempts failed."
-            fi
-          fi
+          # Try to build it
+          echo "Building sample app..."
+          xcodebuild clean build -project ios-demo-app.xcodeproj -scheme ios-demo-app -configuration Debug -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
     artifacts:
-      - SimpleIOSApp/**/*
+      - TempApp/**/*
+      - ios-demo-app/**/*
