@@ -143,13 +143,38 @@ workflows:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
+      
+      - name: Find and list generated app files
+        script: |
+          echo "Finding built app files:"
+          find $HOME/Library/Developer/Xcode/DerivedData -name "*.app" | grep -i finance
+          
+          # Copy app files to a more accessible location
+          mkdir -p $CM_BUILD_DIR/artifacts
+          find $HOME/Library/Developer/Xcode/DerivedData -name "*.app" -exec cp -R {} $CM_BUILD_DIR/artifacts/ \;
+          
+          echo "App files available in: $CM_BUILD_DIR/artifacts"
+          ls -la $CM_BUILD_DIR/artifacts
     artifacts:
+      - $CM_BUILD_DIR/artifacts/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - /tmp/xcodebuild_logs/*.log
     publishing:
       email:
         recipients:
-          - your-email@example.com
+          - your-email@example.com # Replace with your actual email
         notify:
           success: true
-          failure: true 
+          failure: true
+        attachments: true # This ensures the app files are attached to the email
+        release_notes: |
+          Your Finance Manager iOS app has been built successfully!
+          
+          The app files can be found:
+          1. In the email attachments (.app file)
+          2. On the Codemagic dashboard in the Artifacts section
+          3. In the build server at $HOME/Library/Developer/Xcode/DerivedData
+          
+          To install on your device, you'll need:
+          - For simulators: Just download the .app file and open it
+          - For real devices: You'll need to set up code signing with an Apple Developer account 
