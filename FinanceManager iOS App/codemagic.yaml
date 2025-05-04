@@ -1,0 +1,32 @@
+workflows:
+  ios-workflow:
+    name: iOS Finance Manager Workflow
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.example.financemanager
+      xcode: latest
+      cocoapods: default
+      vars:
+        XCODE_PROJECT: "FinanceManager.xcodeproj" # Update this if your project name is different
+        XCODE_SCHEME: "FinanceManagerApp" # Update this if your scheme name is different
+    scripts:
+      - name: Set up code signing
+        script: |
+          echo "Setting up code signing"
+          keychain initialize
+          app-store-connect fetch-signing-files $BUNDLE_ID --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build iOS app
+        script: |
+          xcodebuild build -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="iPhone Distribution" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      email:
+        recipients:
+          - user@example.com # Update with your email 
