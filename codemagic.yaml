@@ -1,114 +1,25 @@
 workflows:
-  native-ios:
-    name: Native iOS Build
-    instance_type: mac_mini_m2
+  ios-workflow:
+    name: iOS Workflow with Remote Access
     environment:
       xcode: latest
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.financemanager.app
     scripts:
-      - name: Check Xcode capabilities
+      - name: Enable Remote Access
         script: |
-          echo "===== XCODE INFO ====="
-          xcodebuild -version
-          
-          echo "\nAvailable SDKs:"
-          xcodebuild -showsdks
-          
-          echo "\nAvailable destinations:"
-          xcodebuild -showdestinations
-      
-      - name: Create basic single view app with Xcode
+          #!/bin/bash
+          # This will enable remote access for 60 minutes
+          codemagic remote-access --duration 60
+      - name: Wait for manual project setup
         script: |
-          # Create a temporary directory
-          mkdir -p TempApp
-          cd TempApp
-          
-          # Use xcodegen to create a simple project (if available)
-          echo "Creating Xcode project..."
-          
-          # Alternative: manually create project structure
-          mkdir -p SimpleApp/SimpleApp
-          cd SimpleApp
-          
-          # Main app files
-          cat > SimpleApp/AppDelegate.swift << 'EOF'
-          import UIKit
-
-          @UIApplicationMain
-          class AppDelegate: UIResponder, UIApplicationDelegate {
-              var window: UIWindow?
-              
-              func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-                  return true
-              }
-          }
-          EOF
-          
-          cat > SimpleApp/ViewController.swift << 'EOF'
-          import UIKit
-          
-          class ViewController: UIViewController {
-              override func viewDidLoad() {
-                  super.viewDidLoad()
-                  view.backgroundColor = .white
-              }
-          }
-          EOF
-          
-          # Create Info.plist
-          cat > SimpleApp/Info.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleDevelopmentRegion</key>
-              <string>en</string>
-              <key>CFBundleExecutable</key>
-              <string>$(EXECUTABLE_NAME)</string>
-              <key>CFBundleIdentifier</key>
-              <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-              <key>CFBundleInfoDictionaryVersion</key>
-              <string>6.0</string>
-              <key>CFBundleName</key>
-              <string>$(PRODUCT_NAME)</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.0</string>
-              <key>CFBundleVersion</key>
-              <string>1</string>
-              <key>LSRequiresIPhoneOS</key>
-              <true/>
-              <key>UILaunchStoryboardName</key>
-              <string>LaunchScreen</string>
-              <key>UIRequiredDeviceCapabilities</key>
-              <array>
-                  <string>armv7</string>
-              </array>
-              <key>UISupportedInterfaceOrientations</key>
-              <array>
-                  <string>UIInterfaceOrientationPortrait</string>
-              </array>
-          </dict>
-          </plist>
-          EOF
-          
-          # Try to use xcodebuild to create a basic project file
-          echo "Creating project file..."
-          
-      - name: Try Codemagic iOS sample app
-        script: |
-          # Clone a known working iOS sample app
-          echo "Cloning iOS sample app..."
-          git clone https://github.com/codemagic-ci-cd/ios-demo-app.git
-          cd ios-demo-app
-          
-          # List the contents
-          echo "Sample app structure:"
-          ls -la
-          
-          # Try to build it
-          echo "Building sample app..."
-          xcodebuild clean build -project ios-demo-app.xcodeproj -scheme ios-demo-app -configuration Debug -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+          echo "Remote access enabled. Please connect via VNC using the credentials above."
+          echo "After setting up the Xcode project, you can commit it directly from the VM."
+          echo "Waiting for remote session to complete..."
+          sleep 3000 # 50 minutes timeout
     artifacts:
-      - TempApp/**/*
-      - ios-demo-app/**/*
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM 
